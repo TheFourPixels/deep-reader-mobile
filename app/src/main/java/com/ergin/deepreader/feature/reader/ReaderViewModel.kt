@@ -8,10 +8,14 @@ import com.ergin.deepreader.domain.usecase.RestoreReadingPositionUseCase
 import com.ergin.deepreader.domain.usecase.SaveReadingPositionUseCase
 import com.ergin.deepreader.ui.theme.ReaderThemeMode
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
 import javax.inject.Inject
 
 @HiltViewModel
@@ -19,7 +23,8 @@ class ReaderViewModel @Inject constructor(
     private val bookRepository: BookRepository,
     private val restoreReadingPositionUseCase: RestoreReadingPositionUseCase,
     private val saveReadingPositionUseCase: SaveReadingPositionUseCase,
-    private val epubParserEngine: EpubParserEngine
+    private val epubParserEngine: EpubParserEngine,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<ReaderUiState>(ReaderUiState.Loading)
@@ -28,9 +33,8 @@ class ReaderViewModel @Inject constructor(
     private var currentBookSha256: String? = null
     private var totalChaptersCount: Int = 1
 
-    fun loadBook(bookSha256: String, initialChapterIndex: Int = 0, totalChapters: Int = 1) {
+    fun loadBook(bookSha256: String, initialChapterIndex: Int = 0, totalChapters: Int? = null) {
         currentBookSha256 = bookSha256
-        totalChaptersCount = totalChapters.coerceAtLeast(1)
         _uiState.value = ReaderUiState.Loading
 
         viewModelScope.launch {
@@ -40,17 +44,15 @@ class ReaderViewModel @Inject constructor(
                 return@launch
             }
 
-            val mockChapterXhtml = """
-                <html xmlns="http://www.w3.org/1999/xhtml">
-                  <body>
-                    <h1>Chapter ${initialChapterIndex + 1}</h1>
-                    <p id="p1">It was a bright cold day in April, and the clocks were striking thirteen.</p>
-                    <p id="p2">Winston Smith, his chin nuzzled into his breast in an effort to escape the vile wind, slipped quickly through the glass doors of Victory Mansions.</p>
-                  </body>
-                </html>
-            """.trimIndent()
+            val epubFile = File(book.filePath)
 
-            val chapter = epubParserEngine.parseChapterContent(mockChapterXhtml, initialChapterIndex)
+            val (chapter, count) = withContext(ioDispatcher) {
+                val realTotal = totalChapters ?: epubParserEngine.getChapterCount(epubFile)
+                val realChapter = epubParserEngine.readChapter(epubFile, initialChapterIndex)
+                Pair(realChapter, realTotal)
+            }
+
+            totalChaptersCount = count.coerceAtLeast(1)
             val restoredPosition = restoreReadingPositionUseCase(bookSha256, listOf(chapter))
 
             _uiState.value = ReaderUiState.Success(

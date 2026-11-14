@@ -5,6 +5,11 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import java.io.ByteArrayOutputStream
+import java.io.File
+import java.nio.charset.StandardCharsets
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 
 class EpubParserEngineTest {
 
@@ -80,5 +85,74 @@ class EpubParserEngineTest {
         assertTrue(chapter.paragraphs.isNotEmpty())
         assertTrue(chapter.paragraphs.any { it.text.contains("Valid paragraph before") })
         assertTrue(chapter.paragraphs.any { it.text.contains("Valid paragraph after") })
+    }
+
+    @Test
+    fun readChapterFromEpub_validZipFile_extractsActualChapterText() {
+        val epubFile = createSampleEpubZipFile()
+        try {
+            val totalChapters = parserEngine.getChapterCount(epubFile)
+            assertEquals(1, totalChapters)
+
+            val chapter = parserEngine.readChapter(epubFile, chapterIndex = 0)
+            assertEquals(0, chapter.chapterIndex)
+            assertEquals("Chapter 1: The Beginning", chapter.title)
+            assertEquals(1, chapter.paragraphs.size)
+            assertEquals("This is the actual text from the EPUB file.", chapter.paragraphs[0].text)
+        } finally {
+            epubFile.delete()
+        }
+    }
+
+    private fun createSampleEpubZipFile(): File {
+        val file = File.createTempFile("sample_epub_", ".epub")
+        val baos = ByteArrayOutputStream()
+        ZipOutputStream(baos).use { zos ->
+            // 1. META-INF/container.xml
+            val containerXml = """
+                <?xml version="1.0"?>
+                <container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+                  <rootfiles>
+                    <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
+                  </rootfiles>
+                </container>
+            """.trimIndent()
+            zos.putNextEntry(ZipEntry("META-INF/container.xml"))
+            zos.write(containerXml.toByteArray(StandardCharsets.UTF_8))
+            zos.closeEntry()
+
+            // 2. OEBPS/content.opf
+            val opfXml = """
+                <?xml version="1.0" encoding="utf-8"?>
+                <package xmlns="http://www.idpf.org/2007/opf" version="3.0">
+                  <manifest>
+                    <item id="chap1" href="chapter1.xhtml" media-type="application/xhtml+xml"/>
+                  </manifest>
+                  <spine>
+                    <itemref idref="chap1"/>
+                  </spine>
+                </package>
+            """.trimIndent()
+            zos.putNextEntry(ZipEntry("OEBPS/content.opf"))
+            zos.write(opfXml.toByteArray(StandardCharsets.UTF_8))
+            zos.closeEntry()
+
+            // 3. OEBPS/chapter1.xhtml
+            val chapter1Xhtml = """
+                <?xml version="1.0" encoding="utf-8"?>
+                <html xmlns="http://www.w3.org/1999/xhtml">
+                  <body>
+                    <h1>Chapter 1: The Beginning</h1>
+                    <p id="p1">This is the actual text from the EPUB file.</p>
+                  </body>
+                </html>
+            """.trimIndent()
+            zos.putNextEntry(ZipEntry("OEBPS/chapter1.xhtml"))
+            zos.write(chapter1Xhtml.toByteArray(StandardCharsets.UTF_8))
+            zos.closeEntry()
+        }
+
+        file.writeBytes(baos.toByteArray())
+        return file
     }
 }

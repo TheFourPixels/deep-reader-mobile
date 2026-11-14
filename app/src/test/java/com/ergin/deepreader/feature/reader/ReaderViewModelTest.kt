@@ -9,7 +9,7 @@ import com.ergin.deepreader.domain.repository.BookRepository
 import com.ergin.deepreader.domain.usecase.RestoreReadingPositionUseCase
 import com.ergin.deepreader.domain.usecase.SaveReadingPositionUseCase
 import io.mockk.coEvery
-import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -53,14 +53,16 @@ class ReaderViewModelTest {
         val chapter0 = ChapterContent(0, "Chapter 1", listOf(ParagraphBlock(0, "p1", "Text", emptyList())))
 
         coEvery { bookRepository.getBookBySha256("sha1") } returns sampleBook
-        coEvery { epubParserEngine.parseChapterContent(any(), 0) } returns chapter0
+        every { epubParserEngine.getChapterCount(any()) } returns 2
+        every { epubParserEngine.readChapter(any(), 0) } returns chapter0
         coEvery { restoreReadingPositionUseCase("sha1", any()) } returns ReadingPosition("sha1", 0, null, 0, 0)
 
         val viewModel = ReaderViewModel(
-            bookRepository,
-            restoreReadingPositionUseCase,
-            saveReadingPositionUseCase,
-            epubParserEngine
+            bookRepository = bookRepository,
+            restoreReadingPositionUseCase = restoreReadingPositionUseCase,
+            saveReadingPositionUseCase = saveReadingPositionUseCase,
+            epubParserEngine = epubParserEngine,
+            ioDispatcher = testDispatcher
         )
 
         viewModel.loadBook("sha1", totalChapters = 2)
@@ -82,14 +84,16 @@ class ReaderViewModelTest {
         val chapter1 = ChapterContent(1, "Chapter 2", listOf(ParagraphBlock(0, "p1", "Text", emptyList())))
 
         coEvery { bookRepository.getBookBySha256("sha1") } returns sampleBook
-        coEvery { epubParserEngine.parseChapterContent(any(), 1) } returns chapter1
+        every { epubParserEngine.getChapterCount(any()) } returns 2
+        every { epubParserEngine.readChapter(any(), 1) } returns chapter1
         coEvery { restoreReadingPositionUseCase("sha1", any()) } returns ReadingPosition("sha1", 1, null, 0, 0)
 
         val viewModel = ReaderViewModel(
-            bookRepository,
-            restoreReadingPositionUseCase,
-            saveReadingPositionUseCase,
-            epubParserEngine
+            bookRepository = bookRepository,
+            restoreReadingPositionUseCase = restoreReadingPositionUseCase,
+            saveReadingPositionUseCase = saveReadingPositionUseCase,
+            epubParserEngine = epubParserEngine,
+            ioDispatcher = testDispatcher
         )
 
         viewModel.loadBook("sha1", initialChapterIndex = 1, totalChapters = 2)
@@ -111,14 +115,16 @@ class ReaderViewModelTest {
         val chapter0 = ChapterContent(0, "Chapter 1", listOf(ParagraphBlock(0, "p1", "Text", emptyList())))
 
         coEvery { bookRepository.getBookBySha256("sha1") } returns sampleBook
-        coEvery { epubParserEngine.parseChapterContent(any(), 0) } returns chapter0
+        every { epubParserEngine.getChapterCount(any()) } returns 1
+        every { epubParserEngine.readChapter(any(), 0) } returns chapter0
         coEvery { restoreReadingPositionUseCase("sha1", any()) } returns ReadingPosition("sha1", 0, null, 0, 0)
 
         val viewModel = ReaderViewModel(
-            bookRepository,
-            restoreReadingPositionUseCase,
-            saveReadingPositionUseCase,
-            epubParserEngine
+            bookRepository = bookRepository,
+            restoreReadingPositionUseCase = restoreReadingPositionUseCase,
+            saveReadingPositionUseCase = saveReadingPositionUseCase,
+            epubParserEngine = epubParserEngine,
+            ioDispatcher = testDispatcher
         )
 
         viewModel.loadBook("sha1", totalChapters = 1)
