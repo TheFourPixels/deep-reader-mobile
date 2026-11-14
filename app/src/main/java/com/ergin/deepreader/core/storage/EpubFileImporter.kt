@@ -7,8 +7,9 @@ import java.io.InputStream
 import java.security.DigestInputStream
 import java.security.MessageDigest
 import java.util.zip.ZipFile
+import javax.inject.Inject
 
-class EpubFileImporter(
+class EpubFileImporter @Inject constructor(
     private val storageGateway: FileStorageGateway
 ) {
 
