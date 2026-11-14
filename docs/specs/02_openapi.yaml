@@ -1,0 +1,411 @@
+openapi: 3.0.3
+info:
+  title: Deep Reader Backend API
+  description: |
+    API-шлюз мобильного приложения «Deep Reader» для быстрого перевода и умного контекстного AI-анализа художественной литературы.
+    Спецификация разработана по методологии Spec-Driven Development (SDD).
+    После утверждения все схемы запросов, ответов и кодов ошибок считаются ЗАМОРОЖЕННЫМИ (FROZEN).
+  version: 1.0.0
+  contact:
+    name: Deep Reader Backend Engineering Team
+    email: backend@deepreader.app
+
+servers:
+  - url: http://localhost:8080
+    description: Локальное окружение разработки
+  - url: http://deep-reader-app.deep-reader.svc.cluster.local:8080
+    description: Внутренний кластер Kubernetes
+
+paths:
+  /api/v1/translate:
+    post:
+      summary: Быстрый перевод фрагмента текста
+      description: |
+        Проксирует запрос к внешнему переводчику (DeepL / Google Translate).
+        Контекст произведения не передается.
+        Результат кэшируется в L1/L2 кэше на 90 дней по хэшу текста и направлений перевода.
+      operationId: translateText
+      tags:
+        - Translation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TranslateRequest'
+      responses:
+        '200':
+          description: Успешный перевод
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TranslateResponse'
+        '400':
+          description: Ошибка валидации входных данных
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: Ошибка на стороне внешнего провайдера перевода
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '504':
+          description: Превышен таймаут ожидания ответа провайдера перевода (3 секунды)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервиса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/explain:
+    post:
+      summary: Интеллектуальный разбор фрагмента книги через LLM
+      description: |
+        Выполняет глубокий литературный, идиоматический и метафорический анализ выделенного фрагмента с учетом контекста.
+        Гарантирует спойлер-безопасность (не раскрывает будущий сюжет).
+        При превышении лимита токенов контекст автоматически урезается согласно заданному алгоритму.
+        Если даже `selected_text` и `current_sentence` превышают лимит, возвращается ошибка `TEXT_TOO_LONG`.
+        Если LLM вернула пустой ответ, возвращается ошибка `EMPTY_AI_RESPONSE` с HTTP-кодом 422.
+      operationId: explainFragment
+      tags:
+        - AI Analysis
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExplainRequest'
+      responses:
+        '200':
+          description: Успешный структурированный разбор выражения
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExplainResponse'
+        '400':
+          description: Ошибка валидации или превышение лимита длины текста (TEXT_TOO_LONG)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Пустой или невалидный ответ от LLM (EMPTY_AI_RESPONSE)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: Ошибка внешнего провайдера LLM (LLM_PROVIDER_ERROR)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '504':
+          description: Таймаут вызова LLM (EXTERNAL_PROVIDER_TIMEOUT, >12s)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя непредвиденная ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/health:
+    get:
+      summary: Liveness & Readiness проверка работоспособности сервиса
+      description: Проверяет статус сервиса и доступность подсистем (кэш, подключение к сети).
+      operationId: healthCheck
+      tags:
+        - System
+      responses:
+        '200':
+          description: Сервис полностью готов к приему трафика
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: Сервис не готов к работе
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+components:
+  schemas:
+    TranslateRequest:
+      type: object
+      required:
+        - text
+        - target_language
+      properties:
+        text:
+          type: string
+          description: Исходный текст для перевода (слово, фраза или абзац)
+          minLength: 1
+          maxLength: 5000
+          example: "It was a bright cold day in April, and the clocks were striking thirteen."
+        source_language:
+          type: string
+          nullable: true
+          description: Двухбуквенный ISO-код исходного языка. Если не указан, применяется автоопределение.
+          minLength: 2
+          maxLength: 10
+          example: "en"
+        target_language:
+          type: string
+          description: Двухбуквенный ISO-код целевого языка перевода.
+          minLength: 2
+          maxLength: 10
+          example: "ru"
+
+    TranslateResponse:
+      type: object
+      required:
+        - translated_text
+        - target_language
+        - cached
+      properties:
+        translated_text:
+          type: string
+          description: Текст выполненного перевода
+          example: "Был яркий холодный апрельский день, и часы пробили тринадцать."
+        source_language:
+          type: string
+          description: Исходный язык (определенный автоматически или взятый из запроса)
+          example: "en"
+        target_language:
+          type: string
+          description: Язык, на который выполнен перевод
+          example: "ru"
+        cached:
+          type: boolean
+          description: Признак того, что ответ был возвращен из кэша бэкенда
+          example: true
+
+    SurroundingContext:
+      type: object
+      description: Окружающий контекст для точного понимания подтекста и стиля
+      properties:
+        sentences_before:
+          type: array
+          description: До 2 предшествующих предложений в пределах видимой области экрана
+          maxItems: 2
+          items:
+            type: string
+            maxLength: 1000
+          example:
+            - "The hallway smelt of boiled cabbage and old rag mats."
+        sentences_after:
+          type: array
+          description: До 2 последующих предложений в пределах видимой области экрана
+          maxItems: 2
+          items:
+            type: string
+            maxLength: 1000
+          example:
+            - "Winston Smith, his chin nuzzled into his breast in an effort to escape the vile wind, slipped quickly through the glass doors."
+        paragraph:
+          type: string
+          nullable: true
+          description: Полный текущий абзац книги
+          maxLength: 4000
+          example: "It was a bright cold day in April, and the clocks were striking thirteen. Winston Smith, his chin nuzzled into his breast in an effort to escape the vile wind, slipped quickly through the glass doors of Victory Mansions..."
+        chapter_context:
+          type: string
+          nullable: true
+          description: Краткий фоновый контекст/заголовок текущей главы (может быть первым отброшен при нехватке токенов)
+          maxLength: 2000
+          example: "Chapter 1: Introduction of Winston Smith in dystopian London."
+
+    ExplainRequest:
+      type: object
+      required:
+        - book_id
+        - selected_text
+        - current_sentence
+        - surrounding_context
+      properties:
+        book_id:
+          type: string
+          description: Идентификатор произведения (клиентский хэш или UUID) для сегментации кэша
+          minLength: 1
+          maxLength: 128
+          example: "1984-george-orwell"
+        selected_text:
+          type: string
+          description: Непосредственно выделенное пользователем слово или выражение, требующее разбора
+          minLength: 1
+          maxLength: 500
+          example: "clocks were striking thirteen"
+        current_sentence:
+          type: string
+          description: Полное предложение, внутри которого находится выделенный фрагмент (никогда не урезается)
+          minLength: 1
+          maxLength: 2000
+          example: "It was a bright cold day in April, and the clocks were striking thirteen."
+        surrounding_context:
+          $ref: '#/components/schemas/SurroundingContext'
+        target_language:
+          type: string
+          description: Язык, на котором LLM должна составить объяснение (по умолчанию ru)
+          default: "ru"
+          minLength: 2
+          maxLength: 10
+          example: "ru"
+
+    ExplainResponse:
+      type: object
+      required:
+        - selected_text
+        - contextual_meaning
+        - phenomenon_type
+        - explanation
+        - stylistic_coloring
+        - spoiler_alert
+        - cached
+      properties:
+        selected_text:
+          type: string
+          description: Исходная разбираемая фраза
+          example: "clocks were striking thirteen"
+        contextual_meaning:
+          type: string
+          description: Краткий смысловой эквивалент фразы в контексте сцены (не буквальный подстрочник)
+          example: "Сюрреалистический признак антиутопического искажения времени и реальности"
+        phenomenon_type:
+          type: string
+          description: Классификация лингвистического или литературного приема
+          enum:
+            - idiom
+            - slang
+            - metaphor
+            - irony
+            - cultural_reference
+            - allusion
+            - archaic
+            - neologism
+            - literal_phrase
+          example: "metaphor"
+        explanation:
+          type: string
+          description: Подробное объяснение смысла простым, понятным языком с учетом литературного подтекста
+          example: "В реальности обычные механические настенные часы отбивают максимум 12 ударов. Удар тринадцатого часа с первых строк погружает читателя в неестественный, тревожный мир тоталитарного контроля, где нарушены даже законы природы и времени."
+        stylistic_coloring:
+          type: string
+          description: Стилистическая и эмоциональная тональность выражения
+          enum:
+            - neutral
+            - informal
+            - slang
+            - rude
+            - sarcastic
+            - ironic
+            - literary
+            - poetic
+            - dramatic
+          example: "dramatic"
+        spoiler_alert:
+          type: boolean
+          description: Флаг предупреждения о потенциальном влиянии на восприятие сюжета (по умолчанию false, модель не додумывает сюжет)
+          example: false
+        cached:
+          type: boolean
+          description: Получен ли ответ из кэша
+          example: false
+        processing_time_ms:
+          type: integer
+          description: Время генерации ответа бэкендом в миллисекундах
+          example: 1240
+
+    ErrorCode:
+      type: string
+      description: Строго типизированный машиночитаемый код ошибки
+      enum:
+        - INVALID_INPUT
+        - TEXT_TOO_LONG
+        - EMPTY_AI_RESPONSE
+        - TRANSLATION_FAILED
+        - LLM_PROVIDER_ERROR
+        - EXTERNAL_PROVIDER_TIMEOUT
+        - RATE_LIMIT_EXCEEDED
+        - INTERNAL_ERROR
+      example: "TEXT_TOO_LONG"
+
+    ErrorDetail:
+      type: object
+      properties:
+        field:
+          type: string
+          description: Имя невалидного поля запроса
+          example: "selected_text"
+        issue:
+          type: string
+          description: Описание проблемы
+          example: "Превышен максимальный лимит длины"
+
+    ErrorResponse:
+      type: object
+      required:
+        - error_code
+        - message
+        - timestamp
+        - trace_id
+      properties:
+        error_code:
+          $ref: '#/components/schemas/ErrorCode'
+        message:
+          type: string
+          description: Понятное человеку сообщение об ошибке
+          example: "Выделенный текст вместе с текущим предложением превышает допустимый лимит токенов."
+        timestamp:
+          type: string
+          format: date-time
+          description: Время возникновения ошибки в формате ISO-8601
+          example: "2026-11-12T14:30:00Z"
+        trace_id:
+          type: string
+          description: Уникальный сквозной ID запроса для трассировки в логах (VictoriaLogs)
+          example: "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d"
+        details:
+          type: array
+          nullable: true
+          description: Дополнительные структурированные подробности ошибки
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
+
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - service
+        - timestamp
+      properties:
+        status:
+          type: string
+          enum: [UP, DOWN, DEGRADED]
+          example: "UP"
+        service:
+          type: string
+          example: "deep-reader-backend"
+        timestamp:
+          type: string
+          format: date-time
+          example: "2026-11-12T14:30:00Z"
+        cache:
+          type: string
+          example: "CONNECTED"
+        active_llm_provider:
+          type: string
+          example: "OpenAiAdapter (gpt-4o-mini)"
