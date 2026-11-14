@@ -1,6 +1,5 @@
 package com.ergin.deepreader.ui.theme
 
-import android.app.Activity
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
@@ -9,7 +8,16 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalContext
+import com.ergin.deepreader.core.designsystem.theme.DarkExtendedReaderColors
+import com.ergin.deepreader.core.designsystem.theme.LightExtendedReaderColors
+import com.ergin.deepreader.core.designsystem.theme.LocalExtendedReaderColors
+import com.ergin.deepreader.core.designsystem.theme.SepiaExtendedReaderColors
+
+enum class ReaderThemeMode {
+    LIGHT, SEPIA, DARK
+}
 
 private val DarkColorScheme = darkColorScheme(
     primary = Purple80,
@@ -21,25 +29,22 @@ private val LightColorScheme = lightColorScheme(
     primary = Purple40,
     secondary = PurpleGrey40,
     tertiary = Pink40
-
-    /* Other default colors to override
-    background = Color(0xFFFFFBFE),
-    surface = Color(0xFFFFFBFE),
-    onPrimary = Color.White,
-    onSecondary = Color.White,
-    onTertiary = Color.White,
-    onBackground = Color(0xFF1C1B1F),
-    onSurface = Color(0xFF1C1B1F),
-    */
 )
 
 @Composable
 fun DeepReaderTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color is available on Android 12+
+    readerThemeMode: ReaderThemeMode? = null,
     dynamicColor: Boolean = true,
     content: @Composable () -> Unit
 ) {
+    val extendedColors = when (readerThemeMode) {
+        ReaderThemeMode.LIGHT -> LightExtendedReaderColors
+        ReaderThemeMode.SEPIA -> SepiaExtendedReaderColors
+        ReaderThemeMode.DARK -> DarkExtendedReaderColors
+        null -> if (darkTheme) DarkExtendedReaderColors else LightExtendedReaderColors
+    }
+
     val colorScheme = when {
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
             val context = LocalContext.current
@@ -50,9 +55,13 @@ fun DeepReaderTheme(
         else -> LightColorScheme
     }
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = Typography,
-        content = content
-    )
+    CompositionLocalProvider(
+        LocalExtendedReaderColors provides extendedColors
+    ) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography = Typography,
+            content = content
+        )
+    }
 }
