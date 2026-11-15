@@ -14,28 +14,46 @@ import com.ergin.deepreader.core.designsystem.theme.DarkExtendedReaderColors
 import com.ergin.deepreader.core.designsystem.theme.LightExtendedReaderColors
 import com.ergin.deepreader.core.designsystem.theme.LocalExtendedReaderColors
 import com.ergin.deepreader.core.designsystem.theme.SepiaExtendedReaderColors
+import com.ergin.deepreader.feature.reader.ReaderThemeMode
 
-enum class ReaderThemeMode {
-    LIGHT, SEPIA, DARK
-}
+typealias ReaderThemeMode = com.ergin.deepreader.feature.reader.ReaderThemeMode
 
 private val DarkColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80
+    primary = FloatingDockPrimary,
+    onPrimary = CardAndModalSurface,
+    secondary = AiAssistantSparkle,
+    onSecondary = CardAndModalSurface,
+    tertiary = BookWarmPaper,
+    background = TextPrimary,
+    onBackground = ScreenBackground,
+    surface = DockActiveIconBg,
+    onSurface = ScreenBackground,
+    surfaceVariant = DockActiveIconBg,
+    onSurfaceVariant = TextSubtlePlaceholder,
+    outline = BorderAndDividers
 )
 
-private val LightColorScheme = lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40
+val LightColorScheme = lightColorScheme(
+    primary = FloatingDockPrimary,
+    onPrimary = CardAndModalSurface,
+    secondary = AiAssistantSparkle,
+    onSecondary = CardAndModalSurface,
+    tertiary = BookWarmPaper,
+    background = ScreenBackground,
+    onBackground = TextPrimary,
+    surface = CardAndModalSurface,
+    onSurface = TextPrimary,
+    surfaceVariant = SubSurfaceWell,
+    onSurfaceVariant = TextSecondaryMuted,
+    outline = BorderAndDividers,
+    outlineVariant = QuoteHighlightGrey
 )
 
 @Composable
 fun DeepReaderTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     readerThemeMode: ReaderThemeMode? = null,
-    dynamicColor: Boolean = true,
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val extendedColors = when (readerThemeMode) {
@@ -50,7 +68,6 @@ fun DeepReaderTheme(
             val context = LocalContext.current
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
-
         darkTheme -> DarkColorScheme
         else -> LightColorScheme
     }
@@ -60,7 +77,7 @@ fun DeepReaderTheme(
     ) {
         MaterialTheme(
             colorScheme = colorScheme,
-            typography = Typography,
+            typography = AppTypography,
             content = content
         )
     }
