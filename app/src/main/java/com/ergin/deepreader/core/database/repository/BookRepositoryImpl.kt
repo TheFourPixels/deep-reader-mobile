@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.withContext
 import java.io.File
+import com.ergin.deepreader.core.database.dao.BookWithProgressEntity
 import java.io.InputStream
 import javax.inject.Inject
 
@@ -108,19 +109,31 @@ class BookRepositoryImpl @Inject constructor(
     override suspend fun deleteBook(sha256: String) = withContext(ioDispatcher) {
         val entity = bookDao.getBookBySha256(sha256)
         if (entity != null) {
-            storageGateway.deleteFile(File(entity.filePath))
-            entity.coverPath?.takeIf { it.isNotBlank() }?.let { storageGateway.deleteFile(File(it)) }
+            storageGateway.deleteFile(File(entity.book.filePath))
+            entity.book.coverPath?.takeIf { it.isNotBlank() }?.let { storageGateway.deleteFile(File(it)) }
             bookDao.deleteBook(sha256)
         }
     }
 
-    private fun BookEntity.toDomain() = Book(
+    private fun BookWithProgressEntity.toDomain() = Book(
+        sha256 = book.sha256,
+        title = book.title,
+        author = book.author,
+        filePath = book.filePath,
+        coverPath = book.coverPath,
+        addedAt = book.addedAt,
+        lastOpenedAt = book.lastOpenedAt,
+        progressPercentage = scrollProgressPercentage ?: 0f
+    )
+
+    private fun BookEntity.toDomain(progressPercentage: Float = 0f) = Book(
         sha256 = sha256,
         title = title,
         author = author,
         filePath = filePath,
         coverPath = coverPath,
         addedAt = addedAt,
-        lastOpenedAt = lastOpenedAt
+        lastOpenedAt = lastOpenedAt,
+        progressPercentage = progressPercentage
     )
 }

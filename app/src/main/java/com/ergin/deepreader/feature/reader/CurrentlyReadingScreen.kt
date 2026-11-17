@@ -81,13 +81,14 @@ fun Book.toCurrentlyReadingBook(
     unknownAuthor: String,
     defaultSynopsis: String
 ): CurrentlyReadingBook {
+    val progress = progressPercentage.toInt().coerceIn(0, 100)
     return CurrentlyReadingBook(
         id = sha256,
         title = title,
         author = author ?: unknownAuthor,
         year = 2024,
         synopsis = defaultSynopsis,
-        readPages = 0,
+        readPages = progress,
         totalPages = 100,
         coverPath = coverPath,
         filePath = filePath

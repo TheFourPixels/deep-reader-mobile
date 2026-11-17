@@ -10,5 +10,6 @@ data class Book(
     val filePath: String,
     val coverPath: String? = null,
     val addedAt: Long = System.currentTimeMillis(),
-    val lastOpenedAt: Long? = null
+    val lastOpenedAt: Long? = null,
+    val progressPercentage: Float = 0f
 )
