@@ -7,8 +7,11 @@ import java.io.File
 import java.text.BreakIterator
 import java.util.Locale
 import java.util.zip.ZipFile
+import javax.inject.Inject
+import javax.inject.Singleton
 
-class EpubParserEngine {
+@Singleton
+class EpubParserEngine @Inject constructor() {
 
     fun getChapterCount(epubFile: File): Int {
         if (!epubFile.exists() || !epubFile.canRead()) return 1
@@ -65,14 +68,14 @@ class EpubParserEngine {
     fun tokenizeSentences(paragraphText: String, chapterIndex: Int = 0, paragraphIndex: Int = 0): List<SentenceSpan> {
         if (paragraphText.isBlank()) return emptyList()
 
-        val iterator = BreakIterator.getSentenceInstance(Locale.ENGLISH)
+        val iterator = BreakIterator.getSentenceInstance(Locale.getDefault())
         iterator.setText(paragraphText)
 
         val rawSpans = mutableListOf<Pair<Int, Int>>()
         val start = iterator.first()
         var end = iterator.next()
 
-        val honorificRegex = Regex("""(?i)\b(mr|mrs|ms|dr|prof|sr|jr)\.\s*$""")
+        val honorificRegex = Regex("""(?iu)(?:^|[\s\p{Punct}])(mr|mrs|ms|dr|prof|sr|jr|г-н|г-жа|добр|проф|ст|мл)\.\s*$""")
 
         var currentStart = start
         while (end != BreakIterator.DONE) {
@@ -189,36 +192,54 @@ class EpubParserEngine {
     }
 
     private fun extractChapterTitle(xhtmlContent: String): String {
-        val titleRegex = Regex("""<h[1-3][^>]*>(.*?)</h[1-3]>""", RegexOption.DOT_MATCHES_ALL)
+        val titleRegex = Regex("""<h[1-3][^>]*>(.*?)</h[1-3]>""", setOf(RegexOption.DOT_MATCHES_ALL, RegexOption.IGNORE_CASE))
         val match = titleRegex.find(xhtmlContent)
         if (match != null) {
-            return stripHtmlTags(match.groupValues[1]).trim()
+            val titleText = decodeHtmlEntities(stripHtmlTags(match.groupValues[1])).trim()
+            if (titleText.isNotBlank()) return titleText
         }
 
-        val htmlTitleRegex = Regex("""<title[^>]*>(.*?)</title>""", RegexOption.DOT_MATCHES_ALL)
+        val htmlTitleRegex = Regex("""<title[^>]*>(.*?)</title>""", setOf(RegexOption.DOT_MATCHES_ALL, RegexOption.IGNORE_CASE))
         val htmlTitleMatch = htmlTitleRegex.find(xhtmlContent)
         if (htmlTitleMatch != null) {
-            return stripHtmlTags(htmlTitleMatch.groupValues[1]).trim()
+            val titleText = decodeHtmlEntities(stripHtmlTags(htmlTitleMatch.groupValues[1])).trim()
+            if (titleText.isNotBlank()) return titleText
         }
 
-        return "Chapter"
+        return "Глава"
     }
 
     private fun extractParagraphBlocks(xhtmlContent: String, chapterIndex: Int): List<ParagraphBlock> {
-        val paragraphRegex = Regex("""<(p|div)([^>]*)>(.*?)</\1>""", RegexOption.DOT_MATCHES_ALL)
-        val matches = paragraphRegex.findAll(xhtmlContent)
+        val blockRegex = Regex(
+            """<(h[1-6]|p|blockquote|li|div)([^>]*)>(.*?)</\1>""",
+            setOf(RegexOption.DOT_MATCHES_ALL, RegexOption.IGNORE_CASE)
+        )
 
         val paragraphs = mutableListOf<ParagraphBlock>()
         var pIndex = 0
 
+        val matches = blockRegex.findAll(xhtmlContent)
         for (match in matches) {
+            val tagName = match.groupValues[1].lowercase()
             val attributes = match.groupValues[2]
             val innerHtml = match.groupValues[3]
-            val cleanText = stripHtmlTags(innerHtml).trim()
+
+            // Avoid div double-extraction if div contains child block elements
+            if (tagName == "div") {
+                val childBlockRegex = Regex("""<(h[1-6]|p|blockquote|li|div)\b""", RegexOption.IGNORE_CASE)
+                if (childBlockRegex.containsMatchIn(innerHtml)) {
+                    continue
+                }
+            }
+
+            val rawText = stripHtmlTags(innerHtml)
+            val cleanText = decodeHtmlEntities(rawText).trim()
 
             if (cleanText.isBlank()) continue
 
-            val idMatch = Regex("""id=["']([^"']+)["']""").find(attributes)
+            val isHeader = tagName.startsWith("h") && tagName.length == 2
+
+            val idMatch = Regex("""id=["']([^"']+)["']""", RegexOption.IGNORE_CASE).find(attributes)
             val xhtmlId = idMatch?.groupValues?.get(1)
 
             val sentenceSpans = tokenizeSentences(cleanText, chapterIndex, pIndex)
@@ -228,17 +249,90 @@ class EpubParserEngine {
                     paragraphIndex = pIndex,
                     xhtmlId = xhtmlId,
                     text = cleanText,
-                    sentences = sentenceSpans
+                    sentences = sentenceSpans,
+                    isHeader = isHeader
                 )
             )
             pIndex++
         }
 
+        // Fallback if 0 paragraphs extracted from non-empty body
+        if (paragraphs.isEmpty() && xhtmlContent.isNotBlank()) {
+            val bodyContent = extractBodyContent(xhtmlContent)
+            val cleanBody = decodeHtmlEntities(stripHtmlTags(bodyContent)).trim()
+            if (cleanBody.isNotBlank()) {
+                val splitParagraphs = cleanBody.split(Regex("""\n\s*\n"""))
+                for (textBlock in splitParagraphs) {
+                    val trimmed = textBlock.trim()
+                    if (trimmed.isNotBlank()) {
+                        val sentenceSpans = tokenizeSentences(trimmed, chapterIndex, pIndex)
+                        paragraphs.add(
+                            ParagraphBlock(
+                                paragraphIndex = pIndex,
+                                xhtmlId = null,
+                                text = trimmed,
+                                sentences = sentenceSpans,
+                                isHeader = false
+                            )
+                        )
+                        pIndex++
+                    }
+                }
+            }
+        }
+
         return paragraphs
     }
 
+    private fun extractBodyContent(xhtmlContent: String): String {
+        val bodyRegex = Regex("""<body[^>]*>(.*?)</body>""", setOf(RegexOption.DOT_MATCHES_ALL, RegexOption.IGNORE_CASE))
+        val match = bodyRegex.find(xhtmlContent)
+        return match?.groupValues?.get(1) ?: xhtmlContent
+    }
+
     private fun stripHtmlTags(html: String): String {
-        return html.replace(Regex("""<[^>]*>"""), " ").replace(Regex("""\s+"""), " ").trim()
+        var result = html.replace(Regex("""<!--.*?-->""", setOf(RegexOption.DOT_MATCHES_ALL)), "")
+        result = result.replace(Regex("""<[^>]*>"""), " ")
+        return result.replace(Regex("""[ \t]+"""), " ").trim()
+    }
+
+    fun decodeHtmlEntities(text: String): String {
+        if (!text.contains('&')) return text.replace(Regex("""[ \t]+"""), " ").trim()
+        var decoded = text
+            .replace("&nbsp;", " ")
+            .replace("&amp;", "&")
+            .replace("&lt;", "<")
+            .replace("&gt;", ">")
+            .replace("&quot;", "\"")
+            .replace("&apos;", "'")
+            .replace("&#39;", "'")
+            .replace("&mdash;", "—")
+            .replace("&ndash;", "–")
+            .replace("&hellip;", "…")
+            .replace("&laquo;", "«")
+            .replace("&raquo;", "»")
+
+        // Handle numeric decimal entities &#NNN;
+        decoded = Regex("""&#(\d+);""").replace(decoded) { matchResult ->
+            try {
+                val codePoint = matchResult.groupValues[1].toInt()
+                String(Character.toChars(codePoint))
+            } catch (e: Exception) {
+                matchResult.value
+            }
+        }
+
+        // Handle numeric hex entities &#xHHH;
+        decoded = Regex("""&#x([0-9a-fA-F]+);""").replace(decoded) { matchResult ->
+            try {
+                val codePoint = matchResult.groupValues[1].toInt(16)
+                String(Character.toChars(codePoint))
+            } catch (e: Exception) {
+                matchResult.value
+            }
+        }
+
+        return decoded.replace(Regex("""[ \t]+"""), " ").trim()
     }
 
     private fun createFallbackChapter(chapterIndex: Int, message: String): ChapterContent {

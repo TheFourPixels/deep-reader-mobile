@@ -38,6 +38,12 @@ android {
     }
 }
 
+kotlin {
+    compilerOptions {
+        freeCompilerArgs.add("-Xcontext-parameters")
+    }
+}
+
 dependencies {
     // Core & Kotlin
     implementation(libs.androidx.core.ktx)

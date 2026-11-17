@@ -3,6 +3,7 @@ package com.ergin.deepreader.core.storage
 import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
+import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -19,6 +20,10 @@ class FileStorageGatewayImpl @Inject constructor(
         File(context.filesDir, "books").apply { if (!exists()) mkdirs() }
     }
 
+    private val coversDir: File by lazy {
+        File(context.filesDir, "covers").apply { if (!exists()) mkdirs() }
+    }
+
     override fun createStagingFile(): File {
         return File.createTempFile("import_", ".tmp", stagingDir)
     }
@@ -28,7 +33,22 @@ class FileStorageGatewayImpl @Inject constructor(
         if (targetFile.exists()) {
             targetFile.delete()
         }
-        stagingFile.renameTo(targetFile)
+        val renamed = stagingFile.renameTo(targetFile)
+        if (!renamed) {
+            try {
+                stagingFile.copyTo(targetFile, overwrite = true)
+                stagingFile.delete()
+            } catch (e: IOException) {
+                targetFile.delete()
+                throw e
+            }
+        }
+        return targetFile
+    }
+
+    override fun saveCoverFile(targetFileName: String, bytes: ByteArray): File {
+        val targetFile = File(coversDir, targetFileName)
+        targetFile.writeBytes(bytes)
         return targetFile
     }
 

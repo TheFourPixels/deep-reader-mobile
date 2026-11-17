@@ -1,41 +1,45 @@
 package com.ergin.deepreader.ui.components
 
-import androidx.compose.animation.animateColorAsState
+import androidx.annotation.StringRes
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.AutoStories
-import androidx.compose.material.icons.outlined.MenuBook
-import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Book
+import androidx.compose.material.icons.outlined.CollectionsBookmark
+import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.ergin.deepreader.ui.theme.DockActiveIconBg
-import com.ergin.deepreader.ui.theme.FloatingDockPrimary
-import com.ergin.deepreader.ui.theme.TextSubtlePlaceholder
+import com.ergin.deepreader.R
+import com.ergin.deepreader.ui.theme.DeepReaderTheme
 
-enum class DockScreen {
-    LIBRARY,
-    READER,
-    SETTINGS
+enum class DockScreen(@param:StringRes val titleResId: Int, val icon: ImageVector) {
+    LIBRARY(R.string.dock_library, Icons.Outlined.Folder),
+    READER(R.string.dock_reader, Icons.Outlined.Book),
+    SETTINGS(R.string.dock_collection, Icons.Outlined.CollectionsBookmark)
 }
 
 @Composable
@@ -44,81 +48,97 @@ fun FloatingDock(
     onScreenSelected: (DockScreen) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Box(
-        modifier = modifier
-            .shadow(elevation = 12.dp, shape = CircleShape)
-            .clip(CircleShape)
-            .background(FloatingDockPrimary)
-            .padding(horizontal = 8.dp, vertical = 6.dp)
+    Surface(
+        modifier = modifier.padding(16.dp),
+        shape = RoundedCornerShape(32.dp),
+        color = MaterialTheme.colorScheme.primary,
+        shadowElevation = 8.dp
     ) {
         Row(
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-            verticalAlignment = Alignment.CenterVertically
+            modifier = Modifier.padding(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            DockTabItem(
-                text = "Библиотека",
-                icon = Icons.Outlined.AutoStories,
-                isSelected = selectedScreen == DockScreen.LIBRARY,
-                onClick = { onScreenSelected(DockScreen.LIBRARY) }
-            )
-            DockTabItem(
-                text = "Чтение",
-                icon = Icons.Outlined.MenuBook,
-                isSelected = selectedScreen == DockScreen.READER,
-                onClick = { onScreenSelected(DockScreen.READER) }
-            )
-            DockTabItem(
-                text = "Настройки",
-                icon = Icons.Outlined.Settings,
-                isSelected = selectedScreen == DockScreen.SETTINGS,
-                onClick = { onScreenSelected(DockScreen.SETTINGS) }
-            )
+            DockScreen.entries.forEach { screen ->
+                DockItem(
+                    screen = screen,
+                    isSelected = selectedScreen == screen,
+                    onClick = { onScreenSelected(screen) }
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun DockTabItem(
-    text: String,
-    icon: ImageVector,
+private fun DockItem(
+    screen: DockScreen,
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
-    val backgroundColor by animateColorAsState(
-        targetValue = if (isSelected) DockActiveIconBg else Color.Transparent,
-        label = "dockTabBg"
-    )
-    val contentColor by animateColorAsState(
-        targetValue = if (isSelected) Color.White else TextSubtlePlaceholder,
-        label = "dockTabContent"
-    )
+    val interactionSource = remember { MutableInteractionSource() }
+    val title = stringResource(screen.titleResId)
 
-    Row(
+    val backgroundColor = if (isSelected) {
+        MaterialTheme.colorScheme.primaryContainer
+    } else {
+        Color.Transparent
+    }
+
+    val iconTint = if (isSelected) {
+        MaterialTheme.colorScheme.onPrimary
+    } else {
+        MaterialTheme.colorScheme.outline
+    }
+
+    Box(
         modifier = Modifier
-            .clip(CircleShape)
+            .height(48.dp)
+            .clip(RoundedCornerShape(24.dp))
             .background(backgroundColor)
             .clickable(
-                interactionSource = remember { MutableInteractionSource() },
+                interactionSource = interactionSource,
                 indication = null,
                 onClick = onClick
             )
-            .padding(horizontal = 14.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
+            .animateContentSize(
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessLow
+                )
+            ),
+        contentAlignment = Alignment.Center
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = text,
-            tint = contentColor,
-            modifier = Modifier.size(20.dp)
-        )
-        if (isSelected) {
-            Text(
-                text = text,
-                color = contentColor,
-                fontSize = 13.sp,
-                style = MaterialTheme.typography.labelMedium
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = screen.icon,
+                contentDescription = title,
+                tint = iconTint,
+                modifier = Modifier.size(24.dp)
             )
+            AnimatedVisibility(visible = isSelected) {
+                Text(
+                    text = title,
+                    color = iconTint,
+                    style = MaterialTheme.typography.labelLarge,
+                    modifier = Modifier.padding(start = 8.dp)
+                )
+            }
         }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun FloatingDockPreview() {
+    DeepReaderTheme {
+        FloatingDock(
+            selectedScreen = DockScreen.LIBRARY,
+            onScreenSelected = {}
+        )
     }
 }

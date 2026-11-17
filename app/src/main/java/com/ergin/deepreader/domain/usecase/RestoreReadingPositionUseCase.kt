@@ -3,6 +3,7 @@ package com.ergin.deepreader.domain.usecase
 import com.ergin.deepreader.core.database.dao.PositionDao
 import com.ergin.deepreader.domain.model.ChapterContent
 import com.ergin.deepreader.domain.model.ReadingPosition
+import kotlinx.coroutines.CancellationException
 import javax.inject.Inject
 
 class RestoreReadingPositionUseCase @Inject constructor(
@@ -12,17 +13,18 @@ class RestoreReadingPositionUseCase @Inject constructor(
         val saved = try {
             positionDao.getPosition(bookSha256)
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             null
         }
 
         if (saved == null || chapters.isEmpty()) {
             return ReadingPosition(
                 bookSha256 = bookSha256,
-                chapterIndex = 0,
-                epubCfi = null,
-                paragraphIndex = 0,
-                charOffset = 0,
-                scrollProgressPercentage = 0f
+                chapterIndex = saved?.chapterIndex?.coerceAtLeast(0) ?: 0,
+                epubCfi = saved?.epubCfi,
+                paragraphIndex = saved?.paragraphIndex?.coerceAtLeast(0) ?: 0,
+                charOffset = saved?.charOffset?.coerceAtLeast(0) ?: 0,
+                scrollProgressPercentage = saved?.scrollProgressPercentage ?: 0f
             )
         }
 

@@ -12,8 +12,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -21,6 +23,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Warning
@@ -31,16 +35,18 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -51,14 +57,19 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import com.ergin.deepreader.R
 import com.ergin.deepreader.domain.model.Book
 import com.ergin.deepreader.ui.components.DockScreen
 import com.ergin.deepreader.ui.components.FloatingDock
+import com.ergin.deepreader.ui.theme.DeepReaderTheme
 import com.ergin.deepreader.ui.theme.ScreenBackground
 import com.ergin.deepreader.ui.theme.SubSurfaceWell
 import com.ergin.deepreader.ui.theme.TextPrimary
@@ -70,12 +81,40 @@ fun LibraryScreen(
     viewModel: LibraryViewModel,
     onAddBookClick: () -> Unit,
     onBookClick: (Book) -> Unit,
+    currentDockScreen: DockScreen = DockScreen.LIBRARY,
+    onDockScreenSelected: (DockScreen) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    val uiState by viewModel.uiState.collectAsState()
-    val dialogState by viewModel.dialogState.collectAsState()
-    var searchQuery by remember { mutableStateOf("") }
-    var selectedDockScreen by remember { mutableStateOf(DockScreen.LIBRARY) }
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    LibraryScreenContent(
+        uiState = uiState,
+        onSearchQueryChange = viewModel::onSearchQueryChanged,
+        onSortOrderChange = viewModel::onSortOrderChanged,
+        onAddBookClick = onAddBookClick,
+        onBookClick = onBookClick,
+        onDismissDialog = viewModel::onDismissDialog,
+        onDismissError = viewModel::onDismissError,
+        currentDockScreen = currentDockScreen,
+        onDockScreenSelected = onDockScreenSelected,
+        modifier = modifier
+    )
+}
+
+@Composable
+fun LibraryScreenContent(
+    uiState: LibraryUiState,
+    onSearchQueryChange: (String) -> Unit,
+    onSortOrderChange: (LibrarySortOrder) -> Unit,
+    onAddBookClick: () -> Unit,
+    onBookClick: (Book) -> Unit,
+    onDismissDialog: () -> Unit,
+    onDismissError: () -> Unit,
+    currentDockScreen: DockScreen = DockScreen.LIBRARY,
+    onDockScreenSelected: (DockScreen) -> Unit = {},
+    modifier: Modifier = Modifier
+) {
+    var showSortMenu by remember { mutableStateOf(false) }
 
     Box(
         modifier = modifier
@@ -85,32 +124,54 @@ fun LibraryScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .statusBarsPadding()
                 .padding(horizontal = 20.dp)
         ) {
-            Spacer(modifier = Modifier.height(48.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
-            // 1. Header "Мои книги"
-            Text(
-                text = "Мои книги",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                color = TextPrimary
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = stringResource(R.string.library_title),
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
+                )
+
+                Surface(
+                    onClick = onAddBookClick,
+                    shape = CircleShape,
+                    color = Color.White,
+                    shadowElevation = 2.dp,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)),
+                    modifier = Modifier.size(44.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = stringResource(R.string.cd_add_book),
+                            tint = TextPrimary
+                        )
+                    }
+                }
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // 2. Search / Filter row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
+                    value = uiState.searchQuery,
+                    onValueChange = onSearchQueryChange,
                     placeholder = {
                         Text(
-                            "Поиск книг...",
+                            text = stringResource(R.string.library_search_placeholder),
                             color = TextSubtlePlaceholder,
                             style = MaterialTheme.typography.bodyMedium
                         )
@@ -118,9 +179,22 @@ fun LibraryScreen(
                     leadingIcon = {
                         Icon(
                             imageVector = Icons.Default.Search,
-                            contentDescription = "Поиск",
+                            contentDescription = stringResource(R.string.cd_search),
                             tint = TextSecondaryMuted
                         )
+                    },
+                    trailingIcon = if (uiState.searchQuery.isNotEmpty()) {
+                        {
+                            IconButton(onClick = { onSearchQueryChange("") }) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = stringResource(R.string.cd_clear_search),
+                                    tint = TextSecondaryMuted
+                                )
+                            }
+                        }
+                    } else {
+                        null
                     },
                     singleLine = true,
                     shape = RoundedCornerShape(16.dp),
@@ -133,17 +207,49 @@ fun LibraryScreen(
                     modifier = Modifier.weight(1f)
                 )
 
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = Color.White,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)),
-                    modifier = Modifier.size(52.dp)
-                ) {
-                    IconButton(onClick = { /* Filter action */ }) {
-                        Icon(
-                            imageVector = Icons.Default.FilterList,
-                            contentDescription = "Фильтр",
-                            tint = TextPrimary
+                Box {
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = Color.White,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)),
+                        modifier = Modifier.size(52.dp)
+                    ) {
+                        IconButton(onClick = { showSortMenu = true }) {
+                            Icon(
+                                imageVector = Icons.Default.FilterList,
+                                contentDescription = stringResource(R.string.cd_filter),
+                                tint = TextPrimary
+                            )
+                        }
+                    }
+
+                    DropdownMenu(
+                        expanded = showSortMenu,
+                        onDismissRequest = { showSortMenu = false }
+                    ) {
+                        SortMenuOption(
+                            label = stringResource(R.string.library_sort_recent),
+                            selected = uiState.sortOrder == LibrarySortOrder.RECENT,
+                            onClick = {
+                                onSortOrderChange(LibrarySortOrder.RECENT)
+                                showSortMenu = false
+                            }
+                        )
+                        SortMenuOption(
+                            label = stringResource(R.string.library_sort_title),
+                            selected = uiState.sortOrder == LibrarySortOrder.TITLE_ASC,
+                            onClick = {
+                                onSortOrderChange(LibrarySortOrder.TITLE_ASC)
+                                showSortMenu = false
+                            }
+                        )
+                        SortMenuOption(
+                            label = stringResource(R.string.library_sort_author),
+                            selected = uiState.sortOrder == LibrarySortOrder.AUTHOR_ASC,
+                            onClick = {
+                                onSortOrderChange(LibrarySortOrder.AUTHOR_ASC)
+                                showSortMenu = false
+                            }
                         )
                     }
                 }
@@ -151,9 +257,8 @@ fun LibraryScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // 3. Subheader "Все"
             Text(
-                text = "Все",
+                text = stringResource(R.string.library_section_all),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = TextPrimary
@@ -161,100 +266,103 @@ fun LibraryScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // 4. Content Area
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
             ) {
-                when (val state = uiState) {
-                    is LibraryUiState.Empty -> {
+                when (val contentState = uiState.content) {
+                    is LibraryContentState.Empty -> {
                         EmptyLibraryContent(onAddBookClick = onAddBookClick)
                     }
-                    is LibraryUiState.Importing -> {
+                    is LibraryContentState.Importing -> {
                         ImportingContent()
                     }
-                    is LibraryUiState.Content -> {
-                        val filteredBooks = if (searchQuery.isBlank()) {
-                            state.books
-                        } else {
-                            state.books.filter {
-                                it.title.contains(searchQuery, ignoreCase = true) ||
-                                        (it.author?.contains(searchQuery, ignoreCase = true) == true)
-                            }
-                        }
-
-                        if (filteredBooks.isEmpty()) {
-                            EmptyLibraryContent(onAddBookClick = onAddBookClick)
+                    is LibraryContentState.Content -> {
+                        if (contentState.filteredBooks.isEmpty()) {
+                            NoSearchResultsContent(
+                                onResetSearchClick = { onSearchQueryChange("") }
+                            )
                         } else {
                             BookGridContent(
-                                books = filteredBooks,
-                                onBookClick = { book ->
-                                    viewModel.onBookClicked(book)
-                                    onBookClick(book)
-                                }
+                                books = contentState.filteredBooks,
+                                onBookClick = onBookClick
                             )
                         }
                     }
-                    is LibraryUiState.Error -> {
-                        ErrorContent(message = state.message, onRetryClick = onAddBookClick)
+                    is LibraryContentState.Error -> {
+                        ErrorContent(
+                            message = contentState.message,
+                            onRetryClick = onAddBookClick,
+                            onDismissClick = onDismissError
+                        )
                     }
                 }
             }
         }
 
-        // 5. Floating Dock at bottom center
         FloatingDock(
-            selectedScreen = selectedDockScreen,
-            onScreenSelected = { selectedDockScreen = it },
+            selectedScreen = currentDockScreen,
+            onScreenSelected = onDockScreenSelected,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 24.dp)
+                .navigationBarsPadding()
+                .padding(bottom = 12.dp)
         )
 
-        // 6. Dialogs
-        when (val dialog = dialogState) {
+        when (val dialog = uiState.dialog) {
             is LibraryDialogState.FileMissingError -> {
                 AlertDialog(
-                    onDismissRequest = { viewModel.onDismissDialog() },
+                    onDismissRequest = onDismissDialog,
                     icon = { Icon(Icons.Default.Warning, contentDescription = null) },
-                    title = { Text("Книга недоступна") },
-                    text = { Text("Не удалось открыть книгу «${dialog.bookTitle}». Файл недоступен на устройстве.") },
+                    title = { Text(stringResource(R.string.dialog_file_missing_title)) },
+                    text = {
+                        Text(stringResource(R.string.dialog_file_missing_message, dialog.bookTitle))
+                    },
                     confirmButton = {
-                        TextButton(onClick = { viewModel.onDismissDialog() }) {
-                            Text("Понятно")
+                        TextButton(onClick = onDismissDialog) {
+                            Text(stringResource(R.string.action_ok_got_it))
                         }
                     }
                 )
             }
             is LibraryDialogState.DuplicateNotice -> {
                 AlertDialog(
-                    onDismissRequest = { viewModel.onDismissDialog() },
-                    title = { Text("Книга уже добавлена") },
-                    text = { Text("Книга «${dialog.book.title}» уже есть в вашей библиотеке.") },
+                    onDismissRequest = onDismissDialog,
+                    title = { Text(stringResource(R.string.dialog_duplicate_title)) },
+                    text = {
+                        Text(stringResource(R.string.dialog_duplicate_message, dialog.book.title))
+                    },
                     confirmButton = {
                         Button(onClick = {
-                            viewModel.onDismissDialog()
+                            onDismissDialog()
                             onBookClick(dialog.book)
                         }) {
-                            Text("Открыть существующую")
+                            Text(stringResource(R.string.action_open_book))
                         }
                     },
                     dismissButton = {
-                        TextButton(onClick = { viewModel.onDismissDialog() }) {
-                            Text("Отмена")
+                        TextButton(onClick = onDismissDialog) {
+                            Text(stringResource(R.string.action_cancel))
                         }
                     }
                 )
             }
             is LibraryDialogState.MetadataCollisionNotice -> {
                 AlertDialog(
-                    onDismissRequest = { viewModel.onDismissDialog() },
-                    title = { Text("Книга добавлена") },
-                    text = { Text("Добавлено новое издание книги «${dialog.newBook.title}». В библиотеке уже есть совпадающая книга.") },
+                    onDismissRequest = onDismissDialog,
+                    title = { Text(stringResource(R.string.dialog_metadata_collision_title)) },
+                    text = {
+                        Text(
+                            stringResource(
+                                R.string.dialog_metadata_collision_message,
+                                dialog.newBook.title
+                            )
+                        )
+                    },
                     confirmButton = {
-                        TextButton(onClick = { viewModel.onDismissDialog() }) {
-                            Text("ОК")
+                        TextButton(onClick = onDismissDialog) {
+                            Text(stringResource(R.string.action_ok))
                         }
                     }
                 )
@@ -262,6 +370,23 @@ fun LibraryScreen(
             LibraryDialogState.None -> {}
         }
     }
+}
+
+@Composable
+private fun SortMenuOption(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    DropdownMenuItem(
+        text = { Text(label) },
+        trailingIcon = if (selected) {
+            { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp)) }
+        } else {
+            null
+        },
+        onClick = onClick
+    )
 }
 
 @Composable
@@ -313,7 +438,7 @@ private fun EmptyLibraryContent(onAddBookClick: () -> Unit) {
                 Spacer(modifier = Modifier.height(20.dp))
 
                 Text(
-                    text = "Библиотека пуста",
+                    text = stringResource(R.string.library_empty_title),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = TextPrimary
@@ -322,7 +447,7 @@ private fun EmptyLibraryContent(onAddBookClick: () -> Unit) {
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
-                    text = "Добавьте первую книгу и выберите для неё группу",
+                    text = stringResource(R.string.library_empty_subtitle),
                     style = MaterialTheme.typography.bodyMedium,
                     color = TextSecondaryMuted,
                     textAlign = TextAlign.Center
@@ -340,13 +465,49 @@ private fun EmptyLibraryContent(onAddBookClick: () -> Unit) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
                             imageVector = Icons.Default.Add,
-                            contentDescription = "Добавить книгу",
+                            contentDescription = stringResource(R.string.cd_add_book),
                             tint = TextPrimary,
                             modifier = Modifier.size(28.dp)
                         )
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun NoSearchResultsContent(onResetSearchClick: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Icon(
+            imageVector = Icons.Default.Search,
+            contentDescription = null,
+            tint = TextSecondaryMuted,
+            modifier = Modifier.size(48.dp)
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(
+            text = stringResource(R.string.library_search_empty_title),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = TextPrimary
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = stringResource(R.string.library_search_empty_subtitle),
+            style = MaterialTheme.typography.bodyMedium,
+            color = TextSecondaryMuted,
+            textAlign = TextAlign.Center
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        OutlinedButton(onClick = onResetSearchClick) {
+            Text(stringResource(R.string.action_reset_search))
         }
     }
 }
@@ -364,7 +525,7 @@ private fun ImportingContent() {
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            text = "Импорт книги и проверка формата...",
+            text = stringResource(R.string.library_importing),
             style = MaterialTheme.typography.bodyLarge,
             color = TextSecondaryMuted
         )
@@ -378,7 +539,7 @@ private fun BookGridContent(
 ) {
     LazyVerticalGrid(
         columns = GridCells.Fixed(2),
-        contentPadding = PaddingValues(bottom = 96.dp),
+        contentPadding = PaddingValues(bottom = 112.dp),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
         modifier = Modifier.fillMaxSize()
@@ -464,7 +625,11 @@ private fun BookGridCard(
 }
 
 @Composable
-private fun ErrorContent(message: String, onRetryClick: () -> Unit) {
+private fun ErrorContent(
+    message: String,
+    onRetryClick: () -> Unit,
+    onDismissClick: () -> Unit
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -486,8 +651,89 @@ private fun ErrorContent(message: String, onRetryClick: () -> Unit) {
             textAlign = TextAlign.Center
         )
         Spacer(modifier = Modifier.height(20.dp))
-        Button(onClick = onRetryClick) {
-            Text("Попробовать снова")
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            OutlinedButton(onClick = onDismissClick) {
+                Text(stringResource(R.string.library_back_to_library))
+            }
+            Button(onClick = onRetryClick) {
+                Text(stringResource(R.string.library_choose_file))
+            }
         }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun LibraryScreenEmptyPreview() {
+    DeepReaderTheme {
+        LibraryScreenContent(
+            uiState = LibraryUiState(content = LibraryContentState.Empty),
+            onSearchQueryChange = {},
+            onSortOrderChange = {},
+            onAddBookClick = {},
+            onBookClick = {},
+            onDismissDialog = {},
+            onDismissError = {}
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun LibraryScreenContentPreview() {
+    val sampleBooks = listOf(
+        Book("sha1", "The Great Gatsby", "F. Scott Fitzgerald", "/tmp/1.epub"),
+        Book("sha2", "1984", "George Orwell", "/tmp/2.epub")
+    )
+    DeepReaderTheme {
+        LibraryScreenContent(
+            uiState = LibraryUiState(
+                content = LibraryContentState.Content(books = sampleBooks)
+            ),
+            onSearchQueryChange = {},
+            onSortOrderChange = {},
+            onAddBookClick = {},
+            onBookClick = {},
+            onDismissDialog = {},
+            onDismissError = {}
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun LibraryScreenErrorPreview() {
+    DeepReaderTheme {
+        LibraryScreenContent(
+            uiState = LibraryUiState(
+                content = LibraryContentState.Error("Повреждённый EPUB-файл")
+            ),
+            onSearchQueryChange = {},
+            onSortOrderChange = {},
+            onAddBookClick = {},
+            onBookClick = {},
+            onDismissDialog = {},
+            onDismissError = {}
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun LibraryScreenDuplicateDialogPreview() {
+    val duplicate = Book("sha1", "The Great Gatsby", "F. Scott Fitzgerald", "/tmp/1.epub")
+    DeepReaderTheme {
+        LibraryScreenContent(
+            uiState = LibraryUiState(
+                content = LibraryContentState.Content(books = listOf(duplicate)),
+                dialog = LibraryDialogState.DuplicateNotice(duplicate)
+            ),
+            onSearchQueryChange = {},
+            onSortOrderChange = {},
+            onAddBookClick = {},
+            onBookClick = {},
+            onDismissDialog = {},
+            onDismissError = {}
+        )
     }
 }

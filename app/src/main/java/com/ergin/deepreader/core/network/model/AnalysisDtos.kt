@@ -57,8 +57,8 @@ data class ErrorDetailDto(
 data class ErrorResponseDto(
     @SerialName("error_code") val errorCode: String,
     @SerialName("message") val message: String,
-    @SerialName("timestamp") val timestamp: String,
-    @SerialName("trace_id") val traceId: String,
+    @SerialName("timestamp") val timestamp: String = "",
+    @SerialName("trace_id") val traceId: String? = null,
     @SerialName("details") val details: List<ErrorDetailDto>? = null
 )
 

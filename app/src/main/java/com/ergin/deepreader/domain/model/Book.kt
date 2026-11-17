@@ -1,5 +1,8 @@
 package com.ergin.deepreader.domain.model
 
+import androidx.compose.runtime.Immutable
+
+@Immutable
 data class Book(
     val sha256: String,
     val title: String,
@@ -7,5 +10,6 @@ data class Book(
     val filePath: String,
     val coverPath: String? = null,
     val addedAt: Long = System.currentTimeMillis(),
-    val lastOpenedAt: Long? = null
+    val lastOpenedAt: Long? = null,
+    val progressPercentage: Float = 0f
 )

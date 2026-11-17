@@ -3,6 +3,7 @@ package com.ergin.deepreader.domain.usecase
 import com.ergin.deepreader.core.database.dao.PositionDao
 import com.ergin.deepreader.core.database.entity.ReadingPositionEntity
 import com.ergin.deepreader.domain.model.ReadingPosition
+import kotlinx.coroutines.CancellationException
 import javax.inject.Inject
 
 class SaveReadingPositionUseCase @Inject constructor(
@@ -21,6 +22,7 @@ class SaveReadingPositionUseCase @Inject constructor(
             )
             positionDao.savePosition(entity)
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             // FT-21 & FT-32: Catch error on save failure to prevent app crashes
         }
     }

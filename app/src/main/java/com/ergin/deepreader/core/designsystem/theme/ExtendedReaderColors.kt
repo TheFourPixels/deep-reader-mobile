@@ -42,7 +42,7 @@ data class ExtendedReaderColors(
 
 val LightExtendedReaderColors = ExtendedReaderColors(
     readerBackground = Color(0xFFFFFFFF),
-    readerContent = Color(0xFF1C1B1F),
+    readerContent = Color(0xFF191919),
     warningContainer = Color(0xFFFFF0C2),
     onWarningContainer = Color(0xFF7C5E00),
     idiomBadge = BadgeColorStyle(container = Color(0xFFEADDFF), content = Color(0xFF21005D)),
@@ -57,8 +57,24 @@ val LightExtendedReaderColors = ExtendedReaderColors(
 )
 
 val SepiaExtendedReaderColors = ExtendedReaderColors(
-    readerBackground = Color(0xFFF4ECD8),
-    readerContent = Color(0xFF5C4033),
+    readerBackground = Color(0xFFFAF5EB),
+    readerContent = Color(0xFF231F1C),
+    warningContainer = Color(0xFFEADAA4),
+    onWarningContainer = Color(0xFF4A3800),
+    idiomBadge = BadgeColorStyle(container = Color(0xFFE2D6EE), content = Color(0xFF3A1C5A)),
+    slangBadge = BadgeColorStyle(container = Color(0xFFECCBCA), content = Color(0xFF4E1D1B)),
+    metaphorBadge = BadgeColorStyle(container = Color(0xFFCBDCE6), content = Color(0xFF0D2D44)),
+    ironyBadge = BadgeColorStyle(container = Color(0xFFDFD6E6), content = Color(0xFF2A2033)),
+    culturalReferenceBadge = BadgeColorStyle(container = Color(0xFFCDE2C7), content = Color(0xFF1C3C14)),
+    allusionBadge = BadgeColorStyle(container = Color(0xFFDDD9D5), content = Color(0xFF272421)),
+    archaicBadge = BadgeColorStyle(container = Color(0xFFECCACD), content = Color(0xFF472124)),
+    neologismBadge = BadgeColorStyle(container = Color(0xFFBFE0D7), content = Color(0xFF0F362C)),
+    literalPhraseBadge = BadgeColorStyle(container = Color(0xFFE2DDD7), content = Color(0xFF2E2925))
+)
+
+val GreyExtendedReaderColors = ExtendedReaderColors(
+    readerBackground = Color(0xFFEAE8E3),
+    readerContent = Color(0xFF201E1D),
     warningContainer = Color(0xFFEADAA4),
     onWarningContainer = Color(0xFF4A3800),
     idiomBadge = BadgeColorStyle(container = Color(0xFFE2D6EE), content = Color(0xFF3A1C5A)),
@@ -73,8 +89,8 @@ val SepiaExtendedReaderColors = ExtendedReaderColors(
 )
 
 val DarkExtendedReaderColors = ExtendedReaderColors(
-    readerBackground = Color(0xFF121212),
-    readerContent = Color(0xFFE6E1E5),
+    readerBackground = Color(0xFF1F1E20),
+    readerContent = Color(0xFFE5E5E7),
     warningContainer = Color(0xFF4A3800),
     onWarningContainer = Color(0xFFFFE088),
     idiomBadge = BadgeColorStyle(container = Color(0xFF4F378B), content = Color(0xFFEADDFF)),

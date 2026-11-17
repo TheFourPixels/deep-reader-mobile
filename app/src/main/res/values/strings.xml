@@ -1,3 +1,138 @@
 <resources>
     <string name="app_name">DeepReader</string>
+
+    <!-- Dock -->
+    <string name="dock_library">Библиотека</string>
+    <string name="dock_reader">Читалка</string>
+    <string name="dock_collection">Коллекция</string>
+
+    <!-- Library -->
+    <string name="library_title">Мои книги</string>
+    <string name="library_search_placeholder">Поиск книг…</string>
+    <string name="cd_search">Поиск</string>
+    <string name="cd_clear_search">Очистить поиск</string>
+    <string name="cd_filter">Фильтр</string>
+    <string name="library_sort_recent">Сначала недавние</string>
+    <string name="library_sort_title">По названию</string>
+    <string name="library_sort_author">По автору</string>
+    <string name="library_section_all">Все</string>
+    <string name="library_empty_title">Библиотека пуста</string>
+    <string name="library_empty_subtitle">Добавьте первую книгу и выберите для неё группу</string>
+    <string name="library_search_empty_title">Ничего не найдено</string>
+    <string name="library_search_empty_subtitle">Попробуйте изменить или сбросить поисковый запрос</string>
+    <string name="action_reset_search">Сбросить поиск</string>
+    <string name="action_go_to_library">Перейти в библиотеку</string>
+    <string name="cd_add_book">Добавить книгу</string>
+    <string name="library_importing">Импорт книги и проверка формата…</string>
+    <string name="library_back_to_library">В библиотеку</string>
+    <string name="library_choose_file">Выбрать файл</string>
+    <string name="dialog_file_missing_title">Книга недоступна</string>
+    <string name="dialog_file_missing_message">Не удалось открыть книгу «%1$s». Файл недоступен на устройстве.</string>
+    <string name="action_ok_got_it">Понятно</string>
+    <string name="dialog_duplicate_title">Книга уже добавлена</string>
+    <string name="dialog_duplicate_message">Книга «%1$s» уже есть в вашей библиотеке.</string>
+    <string name="action_open_book">Открыть книгу</string>
+    <string name="action_cancel">Отмена</string>
+    <string name="dialog_metadata_collision_title">Книга добавлена</string>
+    <string name="dialog_metadata_collision_message">Добавлено новое издание книги «%1$s». В библиотеке уже есть совпадающая книга.</string>
+    <string name="action_ok">ОК</string>
+
+    <!-- Collection -->
+    <string name="collection_default_title">Фантастика</string>
+    <string name="collection_all_books">Все книги</string>
+    <string name="collection_search_placeholder">Поиск в коллекции…</string>
+    <string name="collection_empty_title">Коллекция пуста</string>
+    <string name="cd_close">Закрыть</string>
+
+    <!-- Currently Reading -->
+    <string name="currently_reading_title">Сейчас читаю</string>
+    <string name="currently_reading_books_count">%1$d книг</string>
+    <string name="currently_reading_progress">Прочитано %1$d%%</string>
+    <string name="currently_reading_pages">%1$d из %2$d стр.</string>
+    <string name="currently_reading_continue">Продолжить</string>
+    <string name="currently_reading_unknown_author">Неизвестный автор</string>
+    <string name="currently_reading_default_synopsis">Книга из вашей библиотеки DeepReader.</string>
+
+    <!-- Reader -->
+    <string name="cd_back">Назад</string>
+    <string name="cd_ai_assistant">ИИ-ассистент</string>
+    <string name="reader_ai_hint">Выделите фрагмент текста для AI-разбора</string>
+    <string name="reader_end_of_chapter">— END OF CHAPTER —</string>
+    <string name="cd_bookmarks">Закладки</string>
+    <string name="cd_prev_chapter">Пред</string>
+    <string name="cd_next_chapter">След</string>
+    <string name="reader_chapter_progress">Гл. %1$d/%2$d</string>
+    <string name="cd_settings">Настройки</string>
+    <string name="reader_font_size">Размер шрифта: %1$d sp</string>
+    <string name="reader_font_decrease">-</string>
+    <string name="reader_font_increase">+</string>
+    <string name="cd_theme_light">Светлая тема</string>
+    <string name="cd_theme_sepia">Сепия</string>
+    <string name="cd_theme_grey">Серая тема</string>
+    <string name="cd_theme_dark">Тёмная тема</string>
+    <string name="reader_return_to_library">Вернуться в библиотеку</string>
+    <string name="reader_error_file_unavailable">Не удалось открыть книгу. Файл недоступен на устройстве.</string>
+    <string name="reader_selection_too_long">Фрагмент слишком большой. Выделите меньшую часть текста.</string>
+    <string name="reader_copied">Скопировано</string>
+    <string name="reader_bookmarks_title">Закладки и цитаты</string>
+    <string name="reader_bookmarks_empty">Закладки пока не добавлены. Выделите фрагмент текста, чтобы сохранить цитату.</string>
+    <string name="reader_quote_saved">Цитата сохранена</string>
+    <string name="reader_quote_location">Гл. %1$d • %2$s</string>
+    <string name="cd_delete_quote">Удалить закладку</string>
+
+    <!-- Selection Toolbar -->
+    <string name="action_translate">Перевод</string>
+    <string name="action_ai_explain">AI-разбор</string>
+    <string name="cd_copy">Копировать</string>
+    <string name="cd_quote">Цитата</string>
+    <string name="cd_share">Поделиться</string>
+
+    <!-- Quote Card Modal -->
+    <string name="quote_format_wide">Wide</string>
+    <string name="quote_format_square">Square</string>
+    <string name="quote_action_save">Сохранить</string>
+    <string name="quote_action_ask_ai">Спросить ИИ</string>
+
+    <!-- Analysis & Translation -->
+    <string name="analysis_loading_text">AI-анализатор изучает литературный контекст…</string>
+    <string name="analysis_title">AI-разбор</string>
+    <string name="analysis_cached_badge">Из кэша (%1$dмс)</string>
+    <string name="analysis_quote_format">«%1$s»</string>
+    <string name="analysis_style_prefix">Стиль: %1$s</string>
+    <string name="analysis_translate_title">Перевод (%1$s ➔ %2$s)</string>
+    <string name="analysis_source_auto">AUTO</string>
+    <string name="analysis_retry">Попробовать снова</string>
+    <string name="analysis_fallback_translate">Перевод DeepL</string>
+    <string name="analysis_trace_id">ID ошибки: %1$s</string>
+    <string name="cd_copy_trace_id">Скопировать ID ошибки</string>
+
+    <string name="error_offline_explain">Нет подключения к интернету. AI-разбор сейчас недоступен.</string>
+    <string name="error_offline_translate">Нет подключения к интернету. Перевод сейчас недоступен.</string>
+    <string name="error_network_explain">Не удалось получить ответ. Попробуйте ещё раз.</string>
+    <string name="error_network_translate">Не удалось получить перевод. Попробуйте ещё раз.</string>
+    <string name="error_empty_explain">Не удалось получить ответ. Попробуйте ещё раз.</string>
+    <string name="error_empty_translate">Не удалось получить перевод. Попробуйте ещё раз.</string>
+    <string name="error_unknown">Произошла ошибка при обработке запроса. Попробуйте ещё раз.</string>
+
+    <!-- Phenomenon Types -->
+    <string name="phenomenon_idiom">🧩 Идиома</string>
+    <string name="phenomenon_slang">🗣 Сленг / Жаргон</string>
+    <string name="phenomenon_metaphor">🎭 Метафора</string>
+    <string name="phenomenon_irony">🙃 Ирония</string>
+    <string name="phenomenon_cultural_reference">🏛 Культурный код</string>
+    <string name="phenomenon_allusion">📖 Аллюзия</string>
+    <string name="phenomenon_archaic">📜 Архаизм</string>
+    <string name="phenomenon_neologism">✨ Неологизм</string>
+    <string name="phenomenon_literal">💬 Прямой смысл</string>
+
+    <!-- Stylistic Labels -->
+    <string name="style_neutral">Нейтральный</string>
+    <string name="style_informal">Разговорный</string>
+    <string name="style_slang">Сленговый</string>
+    <string name="style_rude">Грубый</string>
+    <string name="style_sarcastic">Саркастический</string>
+    <string name="style_ironic">Ироничный</string>
+    <string name="style_literary">Высокий стиль</string>
+    <string name="style_poetic">Поэтический</string>
+    <string name="style_dramatic">Драматический</string>
 </resources>

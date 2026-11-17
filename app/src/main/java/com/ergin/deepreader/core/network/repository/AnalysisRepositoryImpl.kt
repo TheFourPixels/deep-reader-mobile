@@ -2,139 +2,159 @@ package com.ergin.deepreader.core.network.repository
 
 import com.ergin.deepreader.core.database.dao.LocalAiCacheDao
 import com.ergin.deepreader.core.database.entity.AiCacheEntity
-import com.ergin.deepreader.core.network.DeepReaderApi
-import com.ergin.deepreader.core.network.model.ErrorResponseDto
+import com.ergin.deepreader.core.network.datasource.AnalysisRemoteDataSource
+import com.ergin.deepreader.core.network.mapper.toDomain
+import com.ergin.deepreader.core.network.mapper.toDto
 import com.ergin.deepreader.core.network.model.ExplainRequestDto
 import com.ergin.deepreader.core.network.model.ExplainResponseDto
 import com.ergin.deepreader.core.network.model.TranslateRequestDto
 import com.ergin.deepreader.core.network.model.TranslateResponseDto
+import com.ergin.deepreader.core.network.util.NetworkResult
+import com.ergin.deepreader.di.IoDispatcher
 import com.ergin.deepreader.domain.model.AnalysisResult
+import com.ergin.deepreader.domain.model.DomainError
+import com.ergin.deepreader.domain.model.ExplainRequest
+import com.ergin.deepreader.domain.model.TranslateRequest
 import com.ergin.deepreader.domain.repository.AnalysisRepository
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.security.MessageDigest
 import javax.inject.Inject
 
 class AnalysisRepositoryImpl @Inject constructor(
-    private val api: DeepReaderApi,
+    private val remoteDataSource: AnalysisRemoteDataSource,
     private val localAiCacheDao: LocalAiCacheDao,
+    @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val json: Json = Json { ignoreUnknownKeys = true }
 ) : AnalysisRepository {
 
-    override suspend fun explainFragment(request: ExplainRequestDto, isOnline: Boolean): AnalysisResult {
-        val cacheKey = calculateExplainCacheKey(request)
+    override suspend fun explainFragment(request: ExplainRequest, isOnline: Boolean): AnalysisResult =
+        withContext(ioDispatcher) {
+            val requestDto = request.toDto()
+            val cacheKey = calculateExplainCacheKey(requestDto)
 
-        // 1. Check Local Cache
-        val cachedEntity = try {
-            localAiCacheDao.getCache(cacheKey)
-        } catch (e: Exception) {
-            null
-        }
-
-        if (cachedEntity != null) {
-            return try {
-                val cachedDto = json.decodeFromString<ExplainResponseDto>(cachedEntity.responseJson)
-                AnalysisResult.ExplainSuccess(cachedDto.copy(cached = true))
+            val cachedEntity = try {
+                localAiCacheDao.getCache(cacheKey)
             } catch (e: Exception) {
-                fetchExplainFromNetwork(request, isOnline, cacheKey)
+                if (e is CancellationException) throw e
+                null
             }
+
+            if (cachedEntity != null) {
+                return@withContext try {
+                    val cachedDto = json.decodeFromString<ExplainResponseDto>(cachedEntity.responseJson)
+                    AnalysisResult.ExplainSuccess(cachedDto.toDomain(cachedOverride = true))
+                } catch (e: Exception) {
+                    if (e is CancellationException) throw e
+                    fetchExplainFromNetwork(requestDto, isOnline, cacheKey)
+                }
+            }
+
+            fetchExplainFromNetwork(requestDto, isOnline, cacheKey)
         }
 
-        return fetchExplainFromNetwork(request, isOnline, cacheKey)
-    }
-
-    private suspend fun fetchExplainFromNetwork(request: ExplainRequestDto, isOnline: Boolean, cacheKey: String): AnalysisResult {
+    private suspend fun fetchExplainFromNetwork(
+        requestDto: ExplainRequestDto,
+        isOnline: Boolean,
+        cacheKey: String
+    ): AnalysisResult {
         if (!isOnline) {
-            return AnalysisResult.Offline("EXPLAIN", "Нет подключения к интернету. AI-разбор сейчас недоступен.")
+            return AnalysisResult.Failure(DomainError.Offline("EXPLAIN"))
         }
 
-        return try {
-            val response = api.explainFragment(request)
-            if (response.isSuccessful && response.body() != null) {
-                val body = response.body()!!
-                val responseJson = json.encodeToString(body)
-                localAiCacheDao.saveCache(
-                    AiCacheEntity(
-                        cacheKey = cacheKey,
-                        cacheType = "EXPLAIN",
-                        responseJson = responseJson
-                    )
-                )
-                AnalysisResult.ExplainSuccess(body)
-            } else {
-                parseErrorResponse(response.errorBody()?.string())
+        return when (val result = remoteDataSource.explainFragment(requestDto)) {
+            is NetworkResult.Success -> {
+                val body = result.body
+                if (body.contextualMeaning.isBlank() || body.explanation.isBlank()) {
+                    AnalysisResult.Failure(DomainError.EmptyResponse("EXPLAIN"))
+                } else {
+                    try {
+                        val responseJson = json.encodeToString(body)
+                        localAiCacheDao.saveCache(
+                            AiCacheEntity(
+                                cacheKey = cacheKey,
+                                cacheType = "EXPLAIN",
+                                responseJson = responseJson
+                            )
+                        )
+                    } catch (e: Exception) {
+                        if (e is CancellationException) throw e
+                    }
+                    AnalysisResult.ExplainSuccess(body.toDomain())
+                }
             }
-        } catch (e: Exception) {
-            AnalysisResult.Error("NETWORK_ERROR", e.message ?: "Сбой соединения с сервером", null)
+            is NetworkResult.Error -> AnalysisResult.Failure(result.error)
         }
     }
 
-    override suspend fun translateText(request: TranslateRequestDto, isOnline: Boolean): AnalysisResult {
-        val cacheKey = calculateTranslateCacheKey(request)
+    override suspend fun translateText(request: TranslateRequest, isOnline: Boolean): AnalysisResult =
+        withContext(ioDispatcher) {
+            val requestDto = request.toDto()
+            val cacheKey = calculateTranslateCacheKey(requestDto)
 
-        val cachedEntity = try {
-            localAiCacheDao.getCache(cacheKey)
-        } catch (e: Exception) {
-            null
-        }
-
-        if (cachedEntity != null) {
-            return try {
-                val cachedDto = json.decodeFromString<TranslateResponseDto>(cachedEntity.responseJson)
-                AnalysisResult.TranslateSuccess(cachedDto.copy(cached = true))
+            val cachedEntity = try {
+                localAiCacheDao.getCache(cacheKey)
             } catch (e: Exception) {
-                fetchTranslateFromNetwork(request, isOnline, cacheKey)
+                if (e is CancellationException) throw e
+                null
             }
+
+            if (cachedEntity != null) {
+                return@withContext try {
+                    val cachedDto = json.decodeFromString<TranslateResponseDto>(cachedEntity.responseJson)
+                    AnalysisResult.TranslateSuccess(cachedDto.toDomain(cachedOverride = true))
+                } catch (e: Exception) {
+                    if (e is CancellationException) throw e
+                    fetchTranslateFromNetwork(requestDto, isOnline, cacheKey)
+                }
+            }
+
+            fetchTranslateFromNetwork(requestDto, isOnline, cacheKey)
         }
 
-        return fetchTranslateFromNetwork(request, isOnline, cacheKey)
-    }
-
-    private suspend fun fetchTranslateFromNetwork(request: TranslateRequestDto, isOnline: Boolean, cacheKey: String): AnalysisResult {
+    private suspend fun fetchTranslateFromNetwork(
+        requestDto: TranslateRequestDto,
+        isOnline: Boolean,
+        cacheKey: String
+    ): AnalysisResult {
         if (!isOnline) {
-            return AnalysisResult.Offline("TRANSLATE", "Нет подключения к интернету. Перевод сейчас недоступен.")
+            return AnalysisResult.Failure(DomainError.Offline("TRANSLATE"))
         }
 
-        return try {
-            val response = api.translateText(request)
-            if (response.isSuccessful && response.body() != null) {
-                val body = response.body()!!
-                val responseJson = json.encodeToString(body)
-                localAiCacheDao.saveCache(
-                    AiCacheEntity(
-                        cacheKey = cacheKey,
-                        cacheType = "TRANSLATE",
-                        responseJson = responseJson
-                    )
-                )
-                AnalysisResult.TranslateSuccess(body)
-            } else {
-                parseErrorResponse(response.errorBody()?.string())
+        return when (val result = remoteDataSource.translateText(requestDto)) {
+            is NetworkResult.Success -> {
+                val body = result.body
+                if (body.translatedText.isBlank()) {
+                    AnalysisResult.Failure(DomainError.EmptyResponse("TRANSLATE"))
+                } else {
+                    try {
+                        val responseJson = json.encodeToString(body)
+                        localAiCacheDao.saveCache(
+                            AiCacheEntity(
+                                cacheKey = cacheKey,
+                                cacheType = "TRANSLATE",
+                                responseJson = responseJson
+                            )
+                        )
+                    } catch (e: Exception) {
+                        if (e is CancellationException) throw e
+                    }
+                    AnalysisResult.TranslateSuccess(body.toDomain())
+                }
             }
-        } catch (e: Exception) {
-            AnalysisResult.Error("NETWORK_ERROR", e.message ?: "Сбой соединения с сервером", null)
-        }
-    }
-
-    private fun parseErrorResponse(errorBodyString: String?): AnalysisResult.Error {
-        if (errorBodyString == null || errorBodyString.isBlank()) {
-            return AnalysisResult.Error("INTERNAL_ERROR", "Произошла ошибка при обработке запроса", null)
-        }
-
-        return try {
-            val errorDto = json.decodeFromString<ErrorResponseDto>(errorBodyString)
-            AnalysisResult.Error(
-                errorCode = errorDto.errorCode,
-                message = errorDto.message,
-                traceId = errorDto.traceId
-            )
-        } catch (e: Exception) {
-            AnalysisResult.Error("INTERNAL_ERROR", "Неизвестная ошибка сервера", null)
+            is NetworkResult.Error -> AnalysisResult.Failure(result.error)
         }
     }
 
     private fun calculateExplainCacheKey(request: ExplainRequestDto): String {
-        val raw = "v1.0:${request.bookId}:${request.selectedText.trim()}:${request.currentSentence.trim()}:${request.targetLanguage.lowercase()}"
+        val beforeJoined = request.surroundingContext.sentencesBefore.joinToString("|") { it.trim() }
+        val afterJoined = request.surroundingContext.sentencesAfter.joinToString("|") { it.trim() }
+        val paragraph = request.surroundingContext.paragraph?.trim().orEmpty()
+        val raw = "v1.1:${request.bookId}:${request.selectedText.trim()}:${request.currentSentence.trim()}:$beforeJoined:$afterJoined:$paragraph:${request.targetLanguage.lowercase()}"
         return sha256(raw)
     }
 

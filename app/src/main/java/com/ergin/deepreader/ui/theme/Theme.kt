@@ -59,6 +59,7 @@ fun DeepReaderTheme(
     val extendedColors = when (readerThemeMode) {
         ReaderThemeMode.LIGHT -> LightExtendedReaderColors
         ReaderThemeMode.SEPIA -> SepiaExtendedReaderColors
+        ReaderThemeMode.GREY -> com.ergin.deepreader.core.designsystem.theme.GreyExtendedReaderColors
         ReaderThemeMode.DARK -> DarkExtendedReaderColors
         null -> if (darkTheme) DarkExtendedReaderColors else LightExtendedReaderColors
     }

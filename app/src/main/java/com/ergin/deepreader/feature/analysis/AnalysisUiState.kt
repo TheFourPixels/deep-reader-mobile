@@ -1,13 +1,22 @@
 package com.ergin.deepreader.feature.analysis
 
-import com.ergin.deepreader.core.network.model.ExplainResponseDto
-import com.ergin.deepreader.core.network.model.TranslateResponseDto
+import androidx.compose.runtime.Immutable
+import com.ergin.deepreader.domain.model.DomainError
+import com.ergin.deepreader.domain.model.ExplainAnalysis
+import com.ergin.deepreader.domain.model.TranslationResult
 
-sealed interface AnalysisUiState {
-    object Idle : AnalysisUiState
-    object Loading : AnalysisUiState
-    data class SuccessExplain(val response: ExplainResponseDto) : AnalysisUiState
-    data class SuccessTranslate(val response: TranslateResponseDto) : AnalysisUiState
-    data class Error(val errorCode: String, val message: String, val traceId: String?) : AnalysisUiState
-    data class Offline(val action: String, val message: String) : AnalysisUiState
+@Immutable
+data class AnalysisUiState(
+    val sheetState: AnalysisSheetState = AnalysisSheetState.Idle,
+    val hasLastSuccessfulResult: Boolean = false
+)
+
+@Immutable
+sealed interface AnalysisSheetState {
+    object Idle : AnalysisSheetState
+    object Loading : AnalysisSheetState
+    data class SuccessExplain(val analysis: ExplainAnalysis) : AnalysisSheetState
+    data class SuccessTranslate(val translation: TranslationResult) : AnalysisSheetState
+    data class Error(val error: DomainError) : AnalysisSheetState
+    data class Offline(val action: String) : AnalysisSheetState
 }
